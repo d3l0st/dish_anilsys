@@ -219,6 +219,7 @@ __marimo__/
 
 
 # igoring data
-data/images/
+data/images/*
+!data/images/.gitkeep
 data/dish.csv
 data/ingredients.csv
