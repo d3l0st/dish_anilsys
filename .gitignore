@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# igoring data
+data/images/
+data/dish.csv
+data/ingredients.csv
