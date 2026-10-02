@@ -77,15 +77,31 @@ class DishCalorieModel(nn.Module):
             max_length=max_text_length,
             return_tensors="pt",
         )
+        self._freeze(self.text_encoder)
+        self._freeze(self.image_encoder)
+
+    @staticmethod
+    def _freeze(module):
+        module.eval()
+        for parameter in module.parameters():
+            parameter.requires_grad = False
+
+    def train(self, mode=True):
+        super().train(mode)
+        self.text_encoder.eval()
+        self.image_encoder.eval()
+        return self
 
     def forward(self, images, texts, mass):
         tokens = self.encode_text(list(texts))
         tokens = {key: value.to(images.device) for key, value in tokens.items()}
-        hidden = self.text_encoder(**tokens).last_hidden_state
-        mask = tokens["attention_mask"].unsqueeze(-1).type_as(hidden)
-        text_embedding = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
-
-        image_embedding = self.image_encoder(images)
+        with torch.no_grad():
+            hidden = self.text_encoder(**tokens).last_hidden_state
+            mask = tokens["attention_mask"].unsqueeze(-1).type_as(hidden)
+            text_embedding = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(
+                min=1e-9
+            )
+            image_embedding = self.image_encoder(images)
         text_features = self.text_projection(text_embedding)
         image_features = self.image_projection(image_embedding)
         fused = torch.cat([text_features, image_features, mass.view(-1, 1)], dim=1)
@@ -150,8 +166,6 @@ def train(config_path):
     ).to(device)
     optimizer = AdamW(
         [
-            {"params": model.text_encoder.parameters(), "lr": cfg.TEXT_LR},
-            {"params": model.image_encoder.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.image_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.classifier.parameters(), "lr": cfg.CLASSIFIER_LR},
