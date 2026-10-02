@@ -80,6 +80,8 @@ class DishCalorieModel(nn.Module):
         )
         self._freeze(self.text_encoder)
         self._freeze(self.image_encoder)
+        for parameter in self.image_encoder.layer4.parameters():
+            parameter.requires_grad = True
 
     @staticmethod
     def _freeze(module):
@@ -93,6 +95,19 @@ class DishCalorieModel(nn.Module):
         self.image_encoder.eval()
         return self
 
+    def encode_image(self, images):
+        encoder = self.image_encoder
+        with torch.no_grad():
+            features = encoder.conv1(images)
+            features = encoder.bn1(features)
+            features = encoder.act1(features)
+            features = encoder.maxpool(features)
+            features = encoder.layer1(features)
+            features = encoder.layer2(features)
+            features = encoder.layer3(features)
+        features = encoder.layer4(features)
+        return encoder.forward_head(features, pre_logits=True)
+
     def forward(self, images, texts, mass):
         tokens = self.encode_text(list(texts))
         tokens = {key: value.to(images.device) for key, value in tokens.items()}
@@ -102,7 +117,7 @@ class DishCalorieModel(nn.Module):
             text_embedding = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(
                 min=1e-9
             )
-            image_embedding = self.image_encoder(images)
+        image_embedding = self.encode_image(images)
         text_features = self.text_projection(text_embedding)
         image_features = self.image_projection(image_embedding)
         fused = torch.cat([text_features, image_features, mass.view(-1, 1)], dim=1)
@@ -161,6 +176,7 @@ def train(config_path):
     model = build_model(cfg, device)
     optimizer = AdamW(
         [
+            {"params": model.image_encoder.layer4.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.image_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.classifier.parameters(), "lr": cfg.CLASSIFIER_LR},
@@ -210,7 +226,6 @@ def plot_training_history(history, save_path):
     )
     plt.plot(epochs, [row["val_loss"] for row in history], marker="o", label="Val loss")
     plt.plot(epochs, [row["val_mae"] for row in history], marker="o", label="Val MAE")
-    plt.axhline(50, color="gray", linestyle="--", linewidth=1, label="Цель MAE 50")
     plt.title("Обучение модели")
     plt.xlabel("Эпоха")
     plt.ylabel("Ккал")
