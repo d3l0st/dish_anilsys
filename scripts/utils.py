@@ -12,6 +12,7 @@ import os
 import random
 import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
@@ -197,7 +198,28 @@ def train(config_path):
     print(f"Лучший MAE на проверке: {best_mae:.4f}")
     print(f"Веса: {os.path.join(save_dir, 'best.pt')}")
     print(f"Метрики: {metrics_path}")
+    plot_training_history(history, os.path.join(save_dir, "training.png"))
     return history
+
+
+def plot_training_history(history, save_path):
+    epochs = [row["epoch"] for row in history]
+    plt.figure(figsize=(10, 5))
+    plt.plot(
+        epochs, [row["train_loss"] for row in history], marker="o", label="Train loss"
+    )
+    plt.plot(epochs, [row["val_loss"] for row in history], marker="o", label="Val loss")
+    plt.plot(epochs, [row["val_mae"] for row in history], marker="o", label="Val MAE")
+    plt.axhline(50, color="gray", linestyle="--", linewidth=1, label="Цель MAE 50")
+    plt.title("Обучение модели")
+    plt.xlabel("Эпоха")
+    plt.ylabel("Ккал")
+    plt.xticks(epochs)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.show()
+    print(f"График: {save_path}")
 
 
 def resolve_save_dir(cfg):
