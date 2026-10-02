@@ -157,13 +157,7 @@ def train(config_path):
         num_workers=cfg.NUM_WORKERS,
         data_dir=cfg.DATA_DIR,
     )
-    model = DishCalorieModel(
-        text_model_name=cfg.TEXT_MODEL,
-        image_model_name=cfg.IMAGE_MODEL,
-        projection_dim=cfg.PROJECTION_DIM,
-        dropout=cfg.DROPOUT,
-        max_text_length=cfg.MAX_TEXT_LENGTH,
-    ).to(device)
+    model = build_model(cfg, device)
     optimizer = AdamW(
         [
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
@@ -174,9 +168,7 @@ def train(config_path):
     )
     criterion = nn.SmoothL1Loss()
 
-    save_dir = cfg.SAVE_DIR
-    if not os.path.isabs(save_dir):
-        save_dir = os.path.join(PROJECT_ROOT, save_dir)
+    save_dir = resolve_save_dir(cfg)
     os.makedirs(save_dir, exist_ok=True)
 
     history = []
@@ -206,3 +198,64 @@ def train(config_path):
     print(f"Веса: {os.path.join(save_dir, 'best.pt')}")
     print(f"Метрики: {metrics_path}")
     return history
+
+
+def resolve_save_dir(cfg):
+    save_dir = cfg.SAVE_DIR
+    if not os.path.isabs(save_dir):
+        save_dir = os.path.join(PROJECT_ROOT, save_dir)
+    return save_dir
+
+
+def build_model(cfg, device):
+    model = DishCalorieModel(
+        text_model_name=cfg.TEXT_MODEL,
+        image_model_name=cfg.IMAGE_MODEL,
+        projection_dim=cfg.PROJECTION_DIM,
+        dropout=cfg.DROPOUT,
+        max_text_length=cfg.MAX_TEXT_LENGTH,
+    )
+    return model.to(device)
+
+
+@torch.no_grad()
+def evaluate_test(config_path):
+    cfg = load_config(config_path)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    weights = os.path.join(resolve_save_dir(cfg), "best.pt")
+    if not os.path.isfile(weights):
+        raise FileNotFoundError(f"Нет файла весов: {weights}. Сначала запустите train.")
+
+    _, val_loader = get_dataloaders(
+        batch_size=cfg.BATCH_SIZE,
+        image_size=cfg.IMAGE_SIZE,
+        num_workers=cfg.NUM_WORKERS,
+        data_dir=cfg.DATA_DIR,
+    )
+    model = build_model(cfg, device)
+    state = torch.load(weights, map_location=device, weights_only=True)
+    model.load_state_dict(state)
+    model.eval()
+
+    mae = torchmetrics.MeanAbsoluteError().to(device)
+    rows = []
+    for batch in val_loader:
+        images = batch["image"].to(device)
+        mass = batch["mass"].to(device)
+        calories = batch["calories"].to(device)
+        predictions = model(images, batch["text"], mass)
+        mae.update(predictions, calories)
+        predictions = predictions.cpu()
+        for index in range(calories.size(0)):
+            real = float(calories[index])
+            predicted = float(predictions[index])
+            rows.append(
+                {
+                    "dish_id": batch["dish_id"][index],
+                    "ingredients": batch["text"][index],
+                    "total_calories": real,
+                    "prediction": predicted,
+                    "abs_error": abs(predicted - real),
+                }
+            )
+    return mae.compute().item(), rows
