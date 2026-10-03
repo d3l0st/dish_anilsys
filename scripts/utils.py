@@ -104,7 +104,7 @@ class DishCalorieModel(nn.Module):
             features = encoder.maxpool(features)
             features = encoder.layer1(features)
             features = encoder.layer2(features)
-            features = encoder.layer3(features)
+        features = encoder.layer3(features)
         features = encoder.layer4(features)
         return encoder.forward_head(features, pre_logits=True)
 
