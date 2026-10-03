@@ -188,10 +188,7 @@ def train(config_path):
         [
             {"params": model.image_encoder.layer3.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.image_encoder.layer4.parameters(), "lr": cfg.IMAGE_LR},
-            {
-                "params": model.text_encoder_last_layer.parameters(),
-                "lr": cfg.TEXT_LR,
-            },
+            {"params": model.text_encoder_last_layer.parameters(), "lr": cfg.TEXT_LR},
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.image_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.classifier.parameters(), "lr": cfg.CLASSIFIER_LR},
