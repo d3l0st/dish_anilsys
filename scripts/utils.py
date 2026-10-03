@@ -80,6 +80,9 @@ class DishCalorieModel(nn.Module):
         )
         self._freeze(self.text_encoder)
         self._freeze(self.image_encoder)
+        self.text_encoder_last_layer = self.text_encoder.transformer.layer[-1]
+        for parameter in self.text_encoder_last_layer.parameters():
+            parameter.requires_grad = True
         for parameter in self.image_encoder.layer3.parameters():
             parameter.requires_grad = True
         for parameter in self.image_encoder.layer4.parameters():
@@ -95,6 +98,8 @@ class DishCalorieModel(nn.Module):
         super().train(mode)
         self.text_encoder.eval()
         self.image_encoder.eval()
+        if mode:
+            self.text_encoder_last_layer.train()
         return self
 
     def encode_image(self, images):
@@ -113,12 +118,9 @@ class DishCalorieModel(nn.Module):
     def forward(self, images, texts, mass):
         tokens = self.encode_text(list(texts))
         tokens = {key: value.to(images.device) for key, value in tokens.items()}
-        with torch.no_grad():
-            hidden = self.text_encoder(**tokens).last_hidden_state
-            mask = tokens["attention_mask"].unsqueeze(-1).type_as(hidden)
-            text_embedding = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(
-                min=1e-9
-            )
+        hidden = self.text_encoder(**tokens).last_hidden_state
+        mask = tokens["attention_mask"].unsqueeze(-1).type_as(hidden)
+        text_embedding = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
         image_embedding = self.encode_image(images)
         text_features = self.text_projection(text_embedding)
         image_features = self.image_projection(image_embedding)
@@ -186,6 +188,10 @@ def train(config_path):
         [
             {"params": model.image_encoder.layer3.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.image_encoder.layer4.parameters(), "lr": cfg.IMAGE_LR},
+            {
+                "params": model.text_encoder_last_layer.parameters(),
+                "lr": cfg.TEXT_LR,
+            },
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.image_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.classifier.parameters(), "lr": cfg.CLASSIFIER_LR},
