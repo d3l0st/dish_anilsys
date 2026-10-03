@@ -253,15 +253,15 @@ def plot_training_history(history, save_path):
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
-    axes[0].plot(epochs, train_loss, label="Train loss")
-    axes[0].plot(epochs, val_loss, label="Val loss")
+    axes[0].plot(epochs, train_loss, marker="o", label="Train loss")
+    axes[0].plot(epochs, val_loss, marker="o", label="Val loss")
     axes[0].set_title("Train / Val loss")
     axes[0].set_xlabel("Эпоха")
     axes[0].set_ylabel("Ккал")
     axes[0].set_xticks(epochs)
     axes[0].legend()
 
-    axes[1].plot(epochs, val_mae, label="Val MAE", color="tab:green")
+    axes[1].plot(epochs, val_mae, marker="o", label="Val MAE", color="tab:green")
     axes[1].set_title("Val MAE")
     axes[1].set_xlabel("Эпоха")
     axes[1].set_ylabel("Ккал")
