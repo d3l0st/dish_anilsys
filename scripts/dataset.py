@@ -38,6 +38,12 @@ def build_transforms(image_size, train):
             [
                 A.Resize(image_size, image_size),
                 A.HorizontalFlip(p=0.5),
+                A.Affine(
+                    translate_percent={"x": (-0.05, 0.05), "y": (-0.05, 0.05)},
+                    scale=(0.9, 1.1),
+                    rotate=(-15, 15),
+                    p=0.5,
+                ),
                 A.RandomBrightnessContrast(p=0.5),
                 A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
                 ToTensorV2(),
