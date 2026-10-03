@@ -199,9 +199,13 @@ def train(config_path):
 
     history = []
     best_mae = float("inf")
+    # SmoothL1 считается в z-score; умножаем на std, чтобы логи/график были в шкале ккал.
+    loss_scale = train_loader.dataset.calories_std
     for epoch in range(1, cfg.EPOCHS + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_mae = validate(model, val_loader, criterion, device)
+        train_loss = train_loss * loss_scale
+        val_loss = val_loss * loss_scale
         row = {
             "epoch": epoch,
             "train_loss": train_loss,
@@ -237,7 +241,7 @@ def plot_training_history(history, save_path):
     plt.plot(epochs, [row["val_mae"] for row in history], marker="o", label="Val MAE")
     plt.title("Обучение модели")
     plt.xlabel("Эпоха")
-    plt.ylabel("Loss (норм.) / MAE (ккал)")
+    plt.ylabel("Ккал")
     plt.xticks(epochs)
     plt.legend()
     plt.tight_layout()
