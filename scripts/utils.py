@@ -80,6 +80,8 @@ class DishCalorieModel(nn.Module):
         )
         self._freeze(self.text_encoder)
         self._freeze(self.image_encoder)
+        for parameter in self.image_encoder.layer3.parameters():
+            parameter.requires_grad = True
         for parameter in self.image_encoder.layer4.parameters():
             parameter.requires_grad = True
 
@@ -176,6 +178,7 @@ def train(config_path):
     model = build_model(cfg, device)
     optimizer = AdamW(
         [
+            {"params": model.image_encoder.layer3.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.image_encoder.layer4.parameters(), "lr": cfg.IMAGE_LR},
             {"params": model.text_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
             {"params": model.image_projection.parameters(), "lr": cfg.CLASSIFIER_LR},
