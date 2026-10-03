@@ -247,19 +247,29 @@ def train(config_path):
 
 def plot_training_history(history, save_path):
     epochs = [row["epoch"] for row in history]
-    plt.figure(figsize=(10, 5))
-    plt.plot(
-        epochs, [row["train_loss"] for row in history], marker="o", label="Train loss"
-    )
-    plt.plot(epochs, [row["val_loss"] for row in history], marker="o", label="Val loss")
-    plt.plot(epochs, [row["val_mae"] for row in history], marker="o", label="Val MAE")
-    plt.title("Обучение модели")
-    plt.xlabel("Эпоха")
-    plt.ylabel("Ккал")
-    plt.xticks(epochs)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(save_path)
+    train_loss = [row["train_loss"] for row in history]
+    val_loss = [row["val_loss"] for row in history]
+    val_mae = [row["val_mae"] for row in history]
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+    axes[0].plot(epochs, train_loss, label="Train loss")
+    axes[0].plot(epochs, val_loss, label="Val loss")
+    axes[0].set_title("Train / Val loss")
+    axes[0].set_xlabel("Эпоха")
+    axes[0].set_ylabel("Ккал")
+    axes[0].set_xticks(epochs)
+    axes[0].legend()
+
+    axes[1].plot(epochs, val_mae, label="Val MAE", color="tab:green")
+    axes[1].set_title("Val MAE")
+    axes[1].set_xlabel("Эпоха")
+    axes[1].set_ylabel("Ккал")
+    axes[1].set_xticks(epochs)
+    axes[1].legend()
+
+    fig.tight_layout()
+    fig.savefig(save_path)
     plt.show()
     print(f"График: {save_path}")
 
