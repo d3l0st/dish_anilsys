@@ -59,12 +59,23 @@ def build_transforms(image_size, train):
 
 
 class DishDataset(Dataset):
-    def __init__(self, frame, data_dir, transform, mass_mean, mass_std):
+    def __init__(
+        self,
+        frame,
+        data_dir,
+        transform,
+        mass_mean,
+        mass_std,
+        calories_mean,
+        calories_std,
+    ):
         self.frame = frame.reset_index(drop=True)
         self.data_dir = data_dir
         self.transform = transform
         self.mass_mean = float(mass_mean)
         self.mass_std = float(mass_std)
+        self.calories_mean = float(calories_mean)
+        self.calories_std = float(calories_std)
 
     def __len__(self):
         return len(self.frame)
@@ -76,11 +87,14 @@ class DishDataset(Dataset):
         image = Image.open(img_path).convert("RGB")
         image = self.transform(image=np.array(image))["image"]
         mass = (float(row["total_mass"]) - self.mass_mean) / self.mass_std
+        calories = (
+            float(row["total_calories"]) - self.calories_mean
+        ) / self.calories_std
         return {
             "image": image,
             "text": row["ingredients"],
             "mass": np.float32(mass),
-            "calories": np.float32(row["total_calories"]),
+            "calories": np.float32(calories),
             "dish_id": dish_id,
         }
 
@@ -94,6 +108,8 @@ def get_dataloaders(batch_size=32, image_size=224, num_workers=0, data_dir=None)
     val_frame = dishes[dishes["split"] == "test"]
     mass_mean = float(train_frame["total_mass"].mean())
     mass_std = float(train_frame["total_mass"].std())
+    calories_mean = float(train_frame["total_calories"].mean())
+    calories_std = float(train_frame["total_calories"].std())
 
     train_dataset = DishDataset(
         train_frame,
@@ -101,6 +117,8 @@ def get_dataloaders(batch_size=32, image_size=224, num_workers=0, data_dir=None)
         build_transforms(image_size, train=True),
         mass_mean,
         mass_std,
+        calories_mean,
+        calories_std,
     )
     val_dataset = DishDataset(
         val_frame,
@@ -108,6 +126,8 @@ def get_dataloaders(batch_size=32, image_size=224, num_workers=0, data_dir=None)
         build_transforms(image_size, train=False),
         mass_mean,
         mass_std,
+        calories_mean,
+        calories_std,
     )
     train_loader = DataLoader(
         train_dataset,

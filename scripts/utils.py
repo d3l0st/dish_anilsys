@@ -126,6 +126,10 @@ class DishCalorieModel(nn.Module):
         return self.classifier(fused).squeeze(-1)
 
 
+def denormalize_calories(values, dataset):
+    return values * dataset.calories_std + dataset.calories_mean
+
+
 def train_one_epoch(model, loader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -157,7 +161,9 @@ def validate(model, loader, criterion, device):
         calories = batch["calories"].to(device)
         predictions = model(images, batch["text"], mass)
         loss = criterion(predictions, calories)
-        mae.update(predictions, calories)
+        predictions_kcal = denormalize_calories(predictions, loader.dataset)
+        calories_kcal = denormalize_calories(calories, loader.dataset)
+        mae.update(predictions_kcal, calories_kcal)
         batch_size = calories.size(0)
         total_loss += loss.item() * batch_size
         seen += batch_size
@@ -231,7 +237,7 @@ def plot_training_history(history, save_path):
     plt.plot(epochs, [row["val_mae"] for row in history], marker="o", label="Val MAE")
     plt.title("Обучение модели")
     plt.xlabel("Эпоха")
-    plt.ylabel("Ккал")
+    plt.ylabel("Loss (норм.) / MAE (ккал)")
     plt.xticks(epochs)
     plt.legend()
     plt.tight_layout()
@@ -284,11 +290,14 @@ def evaluate_test(config_path):
         mass = batch["mass"].to(device)
         calories = batch["calories"].to(device)
         predictions = model(images, batch["text"], mass)
-        mae.update(predictions, calories)
-        predictions = predictions.cpu()
+        predictions_kcal = denormalize_calories(predictions, val_loader.dataset)
+        calories_kcal = denormalize_calories(calories, val_loader.dataset)
+        mae.update(predictions_kcal, calories_kcal)
+        predictions_kcal = predictions_kcal.cpu()
+        calories_kcal = calories_kcal.cpu()
         for index in range(calories.size(0)):
-            real = float(calories[index])
-            predicted = float(predictions[index])
+            real = float(calories_kcal[index])
+            predicted = float(predictions_kcal[index])
             rows.append(
                 {
                     "dish_id": batch["dish_id"][index],
