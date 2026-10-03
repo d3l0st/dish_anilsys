@@ -32,6 +32,17 @@ def load_dishes(data_dir):
     return replace_ingredients(dishes, ingredients)
 
 
+def clean_dishes(dishes):
+    cleaned = dishes.copy()
+    ingredients = cleaned["ingredients"].astype(str).str.strip().str.lower()
+    keep = (
+        (cleaned["total_calories"] > 0)
+        & (ingredients != "plate only")
+        & (cleaned["total_mass"] < 2000)
+    )
+    return cleaned.loc[keep].reset_index(drop=True)
+
+
 def build_transforms(image_size, train):
     if train:
         return A.Compose(
@@ -103,7 +114,7 @@ def get_dataloaders(batch_size=32, image_size=224, num_workers=0, data_dir=None)
     if data_dir is None:
         data_dir = os.path.join(PROJECT_ROOT, "data")
 
-    dishes = load_dishes(data_dir)
+    dishes = clean_dishes(load_dishes(data_dir))
     train_frame = dishes[dishes["split"] == "train"]
     val_frame = dishes[dishes["split"] == "test"]
     mass_mean = float(train_frame["total_mass"].mean())

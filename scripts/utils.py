@@ -199,6 +199,8 @@ def train(config_path):
 
     history = []
     best_mae = float("inf")
+    epochs_without_improve = 0
+    patience = cfg.EARLY_STOPPING_PATIENCE
     # SmoothL1 считается в z-score; умножаем на std, чтобы логи/график были в шкале ккал.
     loss_scale = train_loader.dataset.calories_std
     for epoch in range(1, cfg.EPOCHS + 1):
@@ -219,7 +221,16 @@ def train(config_path):
         )
         if val_mae < best_mae:
             best_mae = val_mae
+            epochs_without_improve = 0
             torch.save(model.state_dict(), os.path.join(save_dir, "best.pt"))
+        else:
+            epochs_without_improve += 1
+            if epochs_without_improve >= patience:
+                print(
+                    f"Early stopping: нет улучшения MAE {patience} эпох подряд "
+                    f"(лучшее {best_mae:.4f})"
+                )
+                break
 
     metrics_path = os.path.join(save_dir, "metrics.json")
     with open(metrics_path, "w", encoding="utf-8") as file:
